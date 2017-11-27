@@ -30,20 +30,42 @@ var raster = svg.append("g"); //Main group for holding path objects
 var vector = svg.append("path"); //Draw all elements to one path element
 
 d3.json('./data/earthquakes_4326_cali.geojson', function(err, geojson) {
-  if (err) throw err; 
+  if (err) throw err;
   
-  vector = vector.datum(geojson); //Bind all geodata
+  console.log(geojson);
+  
+  radius.domain([0, d3.max(geojson.features, function(d) {
+    return d.properties.mag; 
+  })]);
+  
+  path.pointRadius(function(d) {
+    if (Math.random() < 0.1)
+      console.log(d);
+    //return radius(d.properties.mag);
+    return 5;
+  });
+  
+  // render to a single path:
+  vector = vector.datum(geojson); //Binding geodata and preparing for general update pattern
+  // render to multiple paths:
+  /* vector = vector
+    .data(geojson.features)
+    .enter().append('path')
+    .attr('d', path)
+    .on('mouseover', function(d) { console.log(d); }); */
   
   
   
   var center = projection([-119.663, 37.414]); //Set center of proj (latlon) to California
+  
   svg.call(zoom) //Use the zoom event to display the svg in correct zoom
-    .call(zoom.transform, d3.zoomIdentity
-      .translate(width/2, height/2)
-      .scale(1 << 14)
-      .translate(-center[0], -center[1]
-    )
-  );
+    .call(
+      zoom.transform,
+      d3.zoomIdentity
+        .translate(width / 2, height / 2)
+        .scale(1 << 14)
+        .translate(-center[0], -center[1])
+    );
   
   
   
@@ -52,13 +74,15 @@ d3.json('./data/earthquakes_4326_cali.geojson', function(err, geojson) {
 //Utility function to turn a zoom-like object into a translate string, which we've used previously in SVGs
 function stringify(scale, translate) {
   var k = scale / 256;
-  var r = scale % 1 ? Number : Math.round; 
+  var r = scale % 1 ? Number : Math.round; //Round a number if it is a decimal
   return "translate(" + r(translate[0] * scale) + "," + r(translate[1] * scale) + ") scale(" + k + ")";
 }  
   
 function zoomed() {
   var transform = d3.event.transform; //Get data found in event listener
-  var tiles = tile.scale(transform.k).translate(transform.x, transform.y)();
+  var tiles = tile.scale(transform.k).translate([transform.x, transform.y])();
+  //^ Found my bug. Forgot array brackets for [transform.x, transform.y]
+  
   //Get the tiles transformed by the mouse's 2D movement as well as its mouse wheel zoom
   
   //Change the projection as well to handle the points
@@ -74,10 +98,10 @@ function zoomed() {
   
   image.enter().append("image")
     .attr("xlink:href", function(d) {
-      return "https://" + "abc"[d[1] % 3] + ".basemaps.cartocdn.com/rastertiles/voyager" +
+      return "http://" + "abc"[d[1] % 3] + ".basemaps.cartocdn.com/rastertiles/voyager/" + //<-- Forgot a '/' here at the end
       d[2] + "/" + d[0] + "/" + d[1] + ".png"; //Use the RESTful API and send in parameters z,x,y. I'm getting flashbacks of OpenStreetMap (CS 61B)
     })
-    .attr("x", function(d) {return d[0] * 256;}) //Position tiles at the correct places
+    .attr("x", function(d) { return d[0] * 256;}) //Position tiles at the correct places
     .attr("y", function(d) {return d[1] * 256;}) //Note the size is constant, but affected by zooms
     .attr("width", 256).attr("height", 256);
     
